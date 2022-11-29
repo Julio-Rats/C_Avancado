@@ -143,12 +143,12 @@ int main(int argc, char const *argv[])
     for (size_t i = 0; i < NUM_CONS; i++)
     {
         num_cons_thread[i] = i;
-        pthread_create(&consT[i], NULL, (void *)&consumidor, (void *)(num_cons_thread + i));
+        pthread_create((consT + i), NULL, (void *)&consumidor, (void *)(num_cons_thread + i));
     }
     for (size_t i = 0; i < NUM_PROD; i++)
     {
         num_prod_thread[i] = i;
-        pthread_create(&prodT[i], NULL, (void *)&produtor, (void *)(num_prod_thread + i));
+        pthread_create((prodT + i), NULL, (void *)&produtor, (void *)(num_prod_thread + i));
     }
 
     /* Aguarda fim das Threads produtoras */

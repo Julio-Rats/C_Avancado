@@ -147,13 +147,13 @@ int main(int argc, char const *argv[])
     {
         /* somente para enumerar cada Thread */
         num_esc[i] = i + 1;
-        pthread_create(&esc_trd[i], NULL, (void *)&escritor, (void *)(num_esc + i));
+        pthread_create((esc_trd + i), NULL, (void *)&escritor, (void *)(num_esc + i));
     }
     for (size_t i = 0; i < NUM_LEIT; i++)
     {
         /* somente para enumerar cada Thread */
         num_lei[i] = i + 1;
-        pthread_create(&lei_trd[i], NULL, (void *)&leitor, (void *)(num_lei + i));
+        pthread_create((lei_trd + i), NULL, (void *)&leitor, (void *)(num_lei + i));
     }
 
     /* Aguardando Threas (NÃO ALCANÇÁVEIS NESSE EXEMPLO)*/
