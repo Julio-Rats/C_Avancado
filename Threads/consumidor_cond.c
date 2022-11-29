@@ -7,7 +7,7 @@
  * Nessa implementação será utilizado mutex para manipular a sessão critica *
  *  no caso o vetor de produção, no qual através de dois índices faz a      *
  *  leitura (consumo) e escrita (produção), após cada produtores produzirem *
- *  'MAX_PROD' eles encerram, os consumidores consumem o resto de produto   *
+ *  'LIMIT_PROD' eles encerram, os consumidores consumem o resto de produto *
  *  se existir e finalizam, assim esse programa é finalizado.               *
  *                                                                          *
  * ** GCC incluir a biblioteca pthread através do comando '-lpthread'       *
