@@ -162,7 +162,7 @@ int main(int argc, char const *argv[])
     for (size_t i = 0; i < NUM_LEIT; i++)
         pthread_join(lei_trd[i], NULL);
 
-    printf("Fim\n");
+    printf("Fim\n"); // Nunca será alcançável.
 
     return 0;
 }
