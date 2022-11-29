@@ -27,7 +27,7 @@ pthread_mutex_t mutex_m, leitura_m, inanicao_m; /* Mutexs para sessões*/
 pthread_cond_t anti_inanicao_cond;              /* Variável condiconal da mutex */
 
 unsigned int num_leitores = 0; /* Número de leitores ativos */
-char locket_flag = 0;          /* Trava para priorizar escritores */
+unsigned int locket_flag = 0;  /* Trava para priorizar escritores */
 unsigned int critico = 0;      /* Simulando memoria critica compartilhada */
 
 void *leitor(void *num_thread)
