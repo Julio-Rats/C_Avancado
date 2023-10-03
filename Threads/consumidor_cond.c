@@ -10,7 +10,7 @@
  *  'LIMIT_PROD' eles encerram, os consumidores consumem o resto de produto *
  *  se existir e finalizam, assim esse programa é finalizado.               *
  *                                                                          *
- * ** GCC incluir a biblioteca pthread através do comando '-lpthread'       *
+ * ** GCC incluir a biblioteca pthread através do parâmetro '-lpthread'       *
  * ** Este Programa Finaliza.                                               *
  *************************************************************************** */
 
@@ -18,15 +18,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <time.h>   /* time() */
-#include <unistd.h> /* usleep() | sleep() */
+#include <time.h>
+#include <unistd.h>
 
-/* Um elemento será inutilizavel para distinguir vazio e cheio.  */
-#define MAX_PROD 21   /* Número de slots disponiveis pra produzir  */
-#define LIMIT_PROD 10 /* Limite de produtos produzidos por cada produtor */
+#ifdef _WIN32
+#include <Windows.h>
+#define sleep(ms) Sleep(ms)
+#elif __linux__
+#include <unistd.h>
+#else
+#error "OS Not Supported"
+#endif
 
-#define NUM_PROD 10 /* Número de Thread rodando função 'void *produtor(void)'       */
-#define NUM_CONS 7  /* Número de Thread rodando função 'void *consumidor(void)'     */
+/* Um elemento será inutilizável para distinguir vazio e cheio.  */
+#define MAX_PROD 21   /* Número de slots disponíveis pra produzir (buffer size)  */
+#define LIMIT_PROD 10 /* Limite de produtos produzidos por cada produtor (produção por thread antes de morrer) */
+
+#define NUM_PROD 5  /* Número de Thread rodando função 'void *produtor(void)'       */
+#define NUM_CONS 17 /* Número de Thread rodando função 'void *consumidor(void)'     */
 
 pthread_mutex_t mutex_m, fim_m;      /* Sessão Critica acesso ao vetor 'produtos' e variáveis de índices */
 pthread_cond_t prod_cond, cons_cond; /* Índices de controle dos produtores e consumidores sobre o vetor 'produtos' */
@@ -42,9 +51,10 @@ int produtos[MAX_PROD]; /* Vetor de produção (sessão critica) */
 
 void *produtor(void *num_thread)
 {
+    srand(((size_t)time(NULL)) + (*((size_t *)num_thread)) * 54321);
     for (;;)
     {
-        usleep(((rand() % 5) + 1) * 100000);
+        sleep(((rand() % 5) + 1) * 100);
 
         /* Sessão critica (Exclusão Mútua)*/
         pthread_mutex_lock(&mutex_m);
@@ -53,8 +63,8 @@ void *produtor(void *num_thread)
         while ((len_prod + 1) % MAX_PROD == len_cons)
             pthread_cond_wait(&prod_cond, &mutex_m);
 
-        /* Inserindo um valor aleatório entre 1 e 10 (simulando a produção) */
-        produtos[len_prod] = rand() % 10 + 1;
+        /* Inserindo um valor aleatório entre 1 e 99 (simulando a produção) */
+        produtos[len_prod] = rand() % 99 + 1;
         printf("Produzindo: %02d, Pos: %02d, Thread: %02ld (%02d/%02d)\n", produtos[len_prod],
                len_prod, *((size_t *)num_thread) + 1, prod_cont[*((size_t *)num_thread)] + 1, LIMIT_PROD);
         len_prod = (len_prod + 1) % MAX_PROD;
@@ -70,7 +80,8 @@ void *produtor(void *num_thread)
         {
             pthread_mutex_unlock(&mutex_m);
             printf("Fim do produtor: %02ld\n", *((size_t *)num_thread) + 1);
-            return NULL;
+            pthread_exit(NULL);
+            return NULL; /*opcional*/
         }
 
         /* Fim da sessão critica (Exclusão Mútua)*/
@@ -80,9 +91,10 @@ void *produtor(void *num_thread)
 
 void *consumidor(void *num_thread)
 {
+    srand(((size_t)time(NULL)) + (*(size_t *)num_thread) * 12345);
     for (;;)
     {
-        usleep(((rand() % 5) + 1) * 100000);
+        sleep(((rand() % 5) + 1) * 100);
 
         /* Sessão critica (Exclusão Mútua)*/
         pthread_mutex_lock(&mutex_m);
@@ -90,15 +102,17 @@ void *consumidor(void *num_thread)
         /* Vetor vazio aguardando por pelo menos um produtor */
         while (len_cons == len_prod)
         {
-            /* Verficia encerramento dos produtores */
+            /* Verifica encerramento dos produtores */
             pthread_mutex_lock(&fim_m);
             if (fim_flag)
             {
                 pthread_mutex_unlock(&fim_m);
                 pthread_mutex_unlock(&mutex_m);
-                printf("Fim do consumidor: %02ld\n", *((size_t *)num_thread) + 1);
-                return NULL;
+                printf("Fim do consumidor: %02ld\n", (*(size_t *)num_thread) + 1);
+                pthread_exit(NULL);
+                return NULL; /*opcional*/
             }
+            printf("Consumidor %d travado\n", (*(size_t *)num_thread) + 1);
             pthread_mutex_unlock(&fim_m);
             /* Aguarda produção (Produtores existentes ainda) */
             pthread_cond_wait(&cons_cond, &mutex_m);
@@ -106,7 +120,7 @@ void *consumidor(void *num_thread)
 
         /* Consumindo (simulando o consumo) */
         printf("Consumindo: %02d, pos: %02d, Thread: %02ld\n", produtos[len_cons],
-               len_cons, *((size_t *)num_thread) + 1);
+               len_cons, (*(size_t *)num_thread) + 1);
         len_cons = (len_cons + 1) % MAX_PROD;
 
         /* Consumido (libera um produtor caso esses já tenham enchido o vetor) */
@@ -128,7 +142,7 @@ int main(int argc, char const *argv[])
     /* Semente aleatória (clock cpu) */
     srand(time(NULL));
 
-    /* Zera contadores dos produtores (opcional, safyte code) */
+    /* Zera contadores dos produtores */
     memset(prod_cont, 0, sizeof(prod_cont));
 
     /* Inicialização da Mutex e Mutex condicionais */
@@ -137,7 +151,7 @@ int main(int argc, char const *argv[])
     pthread_cond_init(&prod_cond, NULL);
     pthread_cond_init(&cons_cond, NULL);
 
-    printf("Começa\n");
+    printf("Inicia...\n");
 
     /* Inicialização das Threads (inicia condições de corrida) */
     for (size_t i = 0; i < NUM_CONS; i++)
@@ -166,8 +180,10 @@ int main(int argc, char const *argv[])
         as que estiverem mantendo o wait condicional 'cons_cond'.
     */
     /* Livra possíveis Thread consumidoras do bloqueio de falta de produtos, necessário para finalizarem */
-    pthread_mutex_lock(&mutex_m); // Possivel condição de corrida (Thread dentro da sessão critica porém antes do wait)
+    pthread_mutex_lock(&mutex_m);
+    // Possível condição de corrida (Thread consumidores chegam no wait antes da main setar fim_flag = 1)
     pthread_cond_broadcast(&cons_cond);
+    // Caso alguma não tenha chegado ainda no wait, ela irá finalizar antes no if do fim_flag, não travando mais no wait
     pthread_mutex_unlock(&mutex_m);
 
     /* Aguarda fim das Threads consumidoras */
@@ -175,6 +191,11 @@ int main(int argc, char const *argv[])
         pthread_join(consT[i], NULL);
 
     printf("Fim\n");
+
+    pthread_mutex_destroy(&mutex_m);
+    pthread_mutex_destroy(&fim_m);
+    pthread_cond_destroy(&prod_cond);
+    pthread_cond_destroy(&cons_cond);
 
     return 0;
 }

@@ -1,24 +1,33 @@
 /***************************************************************************
- * Problema classico do Leitores e Escritores, no caso em concorrência     *
+ * Problema clássico do Leitores e Escritores, no caso em concorrência     *
  *  de multiprocessamento leitores podem acessar livremente sem bloquear   *
- *  ninguém, porém um unico escritor irá bloquear todos os leitores        *
+ *  ninguém, porém um único escritor irá bloquear todos os leitores        *
  *  e escritores.                                                          *
  *                                                                         *
- * Nessa implementação usando mutex leitores acessam livremente e mantem   *
+ * Nessa implementação usando mutex leitores acessam livremente e mantém   *
  *  o acesso de escritores bloqueado enquanto existir pelo menos um leitor.*
  *  Caso um escritor queira acessar ele bloqueia novos leitores e aguarda  *
  *  até os leitores já ativos terminarem, e assim por sua vez acessa a     *
- *  escrita.                                                               *
+ *  escrita, ou seja leitores tem liberdade de acesso mútuo já escritores  *
+ *  não tem, bloqueando todos                                              *
  *                                                                         *
- * ** GCC incluir a biblioteca pthread através do comando '-lpthread'      *
+ * ** GCC incluir a biblioteca pthread através do parâmetro '-lpthread'    *
  * ** Este Programa *NÃO* Finaliza.                                        *
  *************************************************************************** */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <time.h>   /* time() */
-#include <unistd.h> /* usleep() | sleep() */
+#include <time.h>
+
+#ifdef _WIN32
+#include <Windows.h>
+#define sleep(ms) Sleep(ms)
+#elif __linux__
+#include <unistd.h>
+#else
+#error "OS Not Supported"
+#endif
 
 #define NUM_LEIT 20 /* Número de Threads de Leitura */
 #define NUM_ESCR 4  /* Número de Threads de Escrita */
@@ -32,9 +41,10 @@ unsigned int critico = 0;      /* Simulando memoria critica compartilhada */
 
 void *leitor(void *num_thread)
 {
+    srand(time(NULL) + (*((size_t *)num_thread)) * 12345);
     for (;;)
     {
-        usleep(((rand() % 5) + 1) * 100000);
+        sleep(((rand() % 5) + 5) * 100);
 
         /* Sessão critica da variavel locket_flag */
         pthread_mutex_lock(&inanicao_m);
@@ -84,9 +94,10 @@ void *leitor(void *num_thread)
 
 void *escritor(void *num_thread)
 {
+    srand(time(NULL) + (*((size_t *)num_thread)) * 54321);
     for (;;)
     {
-        usleep(((rand() % 5) + 1) * 100000);
+        sleep(((rand() % 5) + 5) * 100);
 
         /* Sessão critica da variavel locket_flag */
         pthread_mutex_lock(&inanicao_m);

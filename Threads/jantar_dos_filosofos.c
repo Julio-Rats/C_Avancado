@@ -1,16 +1,16 @@
 /********************************************************************************
- * Problema clássico do jantar dos filosofos, consiste na concorrẽncia de       *
+ * Problema clássico do jantar dos filósofos, consiste na concorrência de       *
  *  multiprocessamento o acesso e posse de itens, nos quais são compartilhados  *
- *  e é necessarios mais de um para produzir algo, no caso do jantar dos        *
- *  filosfos os artefatos são os hashis no qual devem cada filosofo pegar       *
+ *  e é necessários mais de um para produzir algo, no caso do jantar dos        *
+ *  filósofos os artefatos são os hashis no qual devem cada filosofo pegar       *
  *  ambos (par de hashi) para de fato comer e devolver os hashis.               *
  *                                                                              *
- * Nessa implementação os hashis são um vetor binario, no qual '0' o hashi não  *
- *  está disponível e '1' está disponivel, assim o vetor no índice 0 é o hashi  *
+ * Nessa implementação os hashis são um vetor binário, no qual '0' o hashi não  *
+ *  está disponível e '1' está disponível, assim o vetor no índice 0 é o hashi  *
  *  da esquerda do primeiro filosofo e o índice 1 é o hashi da direita, e assim *
  *  por diante. Após 'LIMIT_JANTAS' o filosofo encerra.                         *
  *                                                                              *
- * ** GCC incluir a biblioteca pthread através do comando '-lpthread'           *
+ * ** GCC incluir a biblioteca pthread através do parâmetro '-lpthread'         *
  * ** Este Programa Finaliza.                                                   *
  ******************************************************************************** */
 
@@ -18,20 +18,27 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
-#include <time.h>   /* time() */
-#include <unistd.h> /* usleep() / sleep() */
+#include <time.h>
 
-#define NUM_FILOSOFOS 5 /* Número de Filosofos na mesa */
+#ifdef _WIN32
+#include <Windows.h>
+#define sleep(ms) Sleep(ms)
+#elif __linux__
+#include <unistd.h>
+#else
+#error "OS Not Supported"
+#endif
+
+#define NUM_FILOSOFOS 5 /* Número de Filósofos na mesa */
 #define LIMIT_JANTAS 10 /* "Jantas" executada por cada Thread antes de finalizar */
 
 pthread_mutex_t mutex_m;                  /* Sessão Critica acesso as hashis */
 pthread_cond_t hashi_cond[NUM_FILOSOFOS]; /* Condicional para travar e devolver a mutex na falha de pegar hashi */
 
-unsigned int hashi[NUM_FILOSOFOS]; /* vetor binario simulando disponibilidade dos hashis */
+size_t hashi[NUM_FILOSOFOS];  /* vetor binário simulando disponibilidade dos hashis */
+size_t jantas[NUM_FILOSOFOS]; /* Contador de "jantas" de cada Thread */
 
-unsigned int jantas[NUM_FILOSOFOS]; /* Contador de "jantas" de cada Thread */
-
-/* Verifica se o hashi está disponivel, caso sim reserva ("pega") e retorna 1, caso nao retorna 0*/
+/* Verifica se o hashi está disponível, caso sim reserva ("pega") e retorna 1, caso nao retorna 0*/
 int pega_hashi(size_t pos_filosofo)
 {
     if (hashi[pos_filosofo])
@@ -42,7 +49,7 @@ int pega_hashi(size_t pos_filosofo)
     return 0;
 }
 
-/* Configura Hashi para disponivel */
+/* Configura Hashi para disponível */
 void devolver_hashi(size_t pos_filosofo)
 {
     hashi[pos_filosofo] = 1;
@@ -51,17 +58,17 @@ void devolver_hashi(size_t pos_filosofo)
 /* Toma um tempo (pensando...) */
 void pensar(void)
 {
-    usleep(((rand() % 5) + 1) * 10000);
+    sleep(((rand() % 5) + 1) * 100);
 }
 
 /* Condições de corrida (Func Threads) */
-void *almoco(void *num_filosofo)
+void *jantar(void *num_filosofo)
 {
+    srand(((size_t)time(NULL)) + (*((size_t *)num_filosofo)) * 12345);
     for (;;)
     {
         /* Pensa (Delay) */
         pensar();
-
 
         /* Sessão critica acesso aos hashis */
         pthread_mutex_lock(&mutex_m);
@@ -77,8 +84,7 @@ void *almoco(void *num_filosofo)
         }
         /* Fim sessão critica acesso aos hashis */
         pthread_mutex_unlock(&mutex_m);
-
-
+        // tempo para preempção
         /* Sessão critica acesso aos hashis */
         pthread_mutex_lock(&mutex_m);
         /*
@@ -98,12 +104,10 @@ void *almoco(void *num_filosofo)
         /* Fim sessão critica acesso aos hashis */
         pthread_mutex_unlock(&mutex_m);
 
-
         /* Filosofo Comendo*/
         printf("Filosofo comendo: %ld\n", *((size_t *)num_filosofo) + 1);
         /* Incremento de jantas */
         jantas[*((size_t *)num_filosofo)]++;
-
 
         /* Sessão critica acesso aos hashis */
         pthread_mutex_lock(&mutex_m);
@@ -111,8 +115,7 @@ void *almoco(void *num_filosofo)
         devolver_hashi(*((size_t *)num_filosofo));
         /* Fim sessão critica acesso aos hashis */
         pthread_mutex_unlock(&mutex_m);
-
-
+        // tempo para preempção
         /* Sessão critica acesso aos hashis */
         pthread_mutex_lock(&mutex_m);
         /* Devolve hashi da direita */
@@ -122,13 +125,12 @@ void *almoco(void *num_filosofo)
         /* Fim sessão critica acesso aos hashis */
         pthread_mutex_unlock(&mutex_m);
 
-
         /* Caso tenha atingido o limite de jantas encerra */
         if (jantas[*((size_t *)num_filosofo)] == LIMIT_JANTAS)
             break;
     }
     /* Printa antes de sair que está satisfeito (chegou ao limite de jantas) */
-    printf("Filosofo %02ld está satisfeito !\n", *((size_t *)num_filosofo) + 1);
+    printf("Filosofo %02ld esta satisfeito !\n", *((size_t *)num_filosofo) + 1);
 }
 
 int main(int argc, char const *argv[])
@@ -151,13 +153,13 @@ int main(int argc, char const *argv[])
     for (size_t i = 0; i < NUM_FILOSOFOS; i++)
         pthread_cond_init((hashi_cond + i), NULL);
 
-    printf("Começo\n");
+    printf("Jantar esta servido...\n");
 
     /* Inicialização das Threads (inicia condições de corrida) */
     for (size_t i = 0; i < NUM_FILOSOFOS; i++)
     {
         pos_filosofo[i] = i;
-        pthread_create((filosofo_thread + i), NULL, (void *)&almoco, (void *)(pos_filosofo + i));
+        pthread_create((filosofo_thread + i), NULL, (void *)&jantar, (void *)(pos_filosofo + i));
     }
 
     /* Aguardando o retorno das Thread */
